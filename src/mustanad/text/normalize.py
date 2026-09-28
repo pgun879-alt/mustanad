@@ -62,23 +62,27 @@ _WHITESPACE_RE: Final = re.compile(r"\s+")
 
 # Deliberately short, high-frequency-only stop lists. Aggressive stop-word removal hurts
 # phrase queries, so these cover only words that carry no retrieval signal at all.
-ARABIC_STOPWORDS: Final[frozenset[str]] = frozenset(
-    """
-    من الى على عن في مع هذا هذه ذلك تلك التي الذي الذين ما لا لم لن ان انه انها كان كانت
-    يكون تكون قد و او ثم حتى كل بعض غير بين عند لدى هو هي هم هن نحن انا انت اي ايضا بعد
-    قبل هناك هنالك مثل لكن بل اذا لو كما حيث سوف س له لها لهم به بها بهم
-    """.split()
-)
+#
+# The word lists are kept as whitespace-separated text and split at import: a long list of
+# one-word string literals is far harder to review for duplicates and typos than a block of
+# running text is.
+_ARABIC_STOPWORD_TEXT: Final = """
+من الى على عن في مع هذا هذه ذلك تلك التي الذي الذين ما لا لم لن ان انه انها كان كانت
+يكون تكون قد و او ثم حتى كل بعض غير بين عند لدى هو هي هم هن نحن انا انت اي ايضا بعد
+قبل هناك هنالك مثل لكن بل اذا لو كما حيث سوف س له لها لهم به بها بهم
+"""
 
-ENGLISH_STOPWORDS: Final[frozenset[str]] = frozenset(
-    """
-    a an the and or but if then than that this these those of in on at to for from by with
-    without about as is are was were be been being do does did doing have has had having it
-    its i you he she they we not no nor so such can could will would shall should may might
-    must there here what which who whom whose when where why how all any both each more most
-    other some only own same too very s t just don now
-    """.split()
-)
+_ENGLISH_STOPWORD_TEXT: Final = """
+a an the and or but if then than that this these those of in on at to for from by with
+without about as is are was were be been being do does did doing have has had having it
+its i you he she they we not no nor so such can could will would shall should may might
+must there here what which who whom whose when where why how all any both each more most
+other some only own same too very s t just don now
+"""
+
+ARABIC_STOPWORDS: Final[frozenset[str]] = frozenset(_ARABIC_STOPWORD_TEXT.split())
+
+ENGLISH_STOPWORDS: Final[frozenset[str]] = frozenset(_ENGLISH_STOPWORD_TEXT.split())
 
 STOPWORDS: Final[frozenset[str]] = ARABIC_STOPWORDS | ENGLISH_STOPWORDS
 

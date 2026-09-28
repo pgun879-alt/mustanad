@@ -117,9 +117,7 @@ def rerank_score(
     phrase_match: bool,
 ) -> float:
     """Blend the four signals into a single score in ``[0.0, 1.0]``."""
-    score = (
-        WEIGHT_COVERAGE * coverage + WEIGHT_BM25 * bm25_relative + WEIGHT_PROXIMITY * proximity
-    )
+    score = WEIGHT_COVERAGE * coverage + WEIGHT_BM25 * bm25_relative + WEIGHT_PROXIMITY * proximity
     if phrase_match:
         score += PHRASE_BONUS
     return min(score, 1.0)

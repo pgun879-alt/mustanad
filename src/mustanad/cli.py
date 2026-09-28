@@ -166,7 +166,9 @@ def config() -> None:
     """Print the effective configuration, with secrets redacted."""
     try:
         settings = get_settings()
-    except Exception as exc:  # noqa: BLE001 - surface any validation error readably
+    except Exception as exc:
+        # Broad on purpose: this command exists to explain *why* configuration is invalid, so
+        # it must render any error readably instead of printing a traceback at the user.
         console.print(f"[red]configuration is invalid:[/] {exc}")
         raise typer.Exit(code=1) from exc
 
@@ -175,11 +177,13 @@ def config() -> None:
     table.add_column("value")
     redacted = {"llm_api_key", "api_keys"}
     for name, value in settings.model_dump().items():
-        if name in redacted:
-            shown = f"<{len(value) if isinstance(value, tuple) else 1} value(s) set>" if value else "<unset>"
+        if name not in redacted:
+            table.add_row(name, str(value))
+        elif not value:
+            table.add_row(name, "<unset>")
         else:
-            shown = str(value)
-        table.add_row(name, shown)
+            count = len(value) if isinstance(value, tuple) else 1
+            table.add_row(name, f"<{count} value(s) set, redacted>")
     console.print(table)
 
 

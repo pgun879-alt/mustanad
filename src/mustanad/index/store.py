@@ -236,23 +236,21 @@ class DocumentStore:
         """Return, for each supplied term, the number of chunks containing it."""
         if not terms:
             return {}
-        placeholders = ",".join("?" * len(terms))
-        rows = self._connection.execute(
-            f"SELECT term, COUNT(*) AS df FROM postings WHERE term IN ({placeholders})"  # noqa: S608
-            " GROUP BY term",
-            tuple(terms),
-        ).fetchall()
+        in_clause = _in_clause(len(terms))
+        query = (
+            f"SELECT term, COUNT(*) AS df FROM postings WHERE term IN ({in_clause})"  # noqa: S608 - placeholders only; see _in_clause
+            " GROUP BY term"
+        )
+        rows = self._connection.execute(query, tuple(terms)).fetchall()
         return {str(row["term"]): int(row["df"]) for row in rows}
 
     def postings_for(self, terms: Sequence[str]) -> dict[str, list[tuple[int, int]]]:
         """Return ``{term: [(chunk_id, term_frequency), ...]}`` for the supplied terms."""
         if not terms:
             return {}
-        placeholders = ",".join("?" * len(terms))
-        rows = self._connection.execute(
-            f"SELECT term, chunk_id, tf FROM postings WHERE term IN ({placeholders})",  # noqa: S608
-            tuple(terms),
-        ).fetchall()
+        in_clause = _in_clause(len(terms))
+        query = f"SELECT term, chunk_id, tf FROM postings WHERE term IN ({in_clause})"  # noqa: S608 - placeholders only; see _in_clause
+        rows = self._connection.execute(query, tuple(terms)).fetchall()
         result: dict[str, list[tuple[int, int]]] = {}
         for row in rows:
             result.setdefault(str(row["term"]), []).append((int(row["chunk_id"]), int(row["tf"])))
@@ -261,25 +259,23 @@ class DocumentStore:
     def chunk_lengths(self, chunk_ids: Sequence[int]) -> dict[int, int]:
         if not chunk_ids:
             return {}
-        placeholders = ",".join("?" * len(chunk_ids))
-        rows = self._connection.execute(
-            f"SELECT id, n_tokens FROM chunks WHERE id IN ({placeholders})",  # noqa: S608
-            tuple(chunk_ids),
-        ).fetchall()
+        in_clause = _in_clause(len(chunk_ids))
+        query = f"SELECT id, n_tokens FROM chunks WHERE id IN ({in_clause})"  # noqa: S608 - placeholders only; see _in_clause
+        rows = self._connection.execute(query, tuple(chunk_ids)).fetchall()
         return {int(row["id"]): int(row["n_tokens"]) for row in rows}
 
     def get_chunks(self, chunk_ids: Sequence[int]) -> dict[int, ChunkRecord]:
         """Fetch chunks with their document context, keyed by chunk id."""
         if not chunk_ids:
             return {}
-        placeholders = ",".join("?" * len(chunk_ids))
-        rows = self._connection.execute(
-            "SELECT c.id, c.document_id, c.ordinal, c.page, c.text, c.n_tokens,"
+        in_clause = _in_clause(len(chunk_ids))
+        query = (
+            "SELECT c.id, c.document_id, c.ordinal, c.page, c.text, c.n_tokens,"  # noqa: S608 - placeholders only; see _in_clause
             " d.title AS document_title, d.source AS document_source"
             " FROM chunks c JOIN documents d ON d.id = c.document_id"
-            f" WHERE c.id IN ({placeholders})",  # noqa: S608
-            tuple(chunk_ids),
-        ).fetchall()
+            f" WHERE c.id IN ({in_clause})"
+        )
+        rows = self._connection.execute(query, tuple(chunk_ids)).fetchall()
         return {
             int(row["id"]): ChunkRecord(
                 id=int(row["id"]),
@@ -293,6 +289,22 @@ class DocumentStore:
             )
             for row in rows
         }
+
+
+def _in_clause(count: int) -> str:
+    """Return a placeholder run like ``?,?,?`` for a variable-length ``IN`` clause.
+
+    SQLite cannot bind a list to a single parameter, so the *placeholder run* has to be
+    interpolated into the SQL text. It is generated purely from ``count`` -- an ``int`` taken
+    from ``len()`` of an internal list -- so no caller-supplied value ever reaches the query
+    string. Every actual value is still bound as a parameter.
+
+    This is the only interpolation anywhere in this module, which is why it lives in one
+    audited function instead of being repeated at four call sites.
+    """
+    if count <= 0:
+        raise ValueError("an IN clause needs at least one placeholder")
+    return ",".join("?" * count)
 
 
 def _to_document(row: sqlite3.Row) -> DocumentRecord:

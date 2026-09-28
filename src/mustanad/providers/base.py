@@ -107,4 +107,11 @@ class AnswerProvider(ABC):
         """
 
     def close(self) -> None:
-        """Release any held resources. Safe to call more than once."""
+        """Release any held resources. Safe to call more than once.
+
+        Concrete and intentionally a no-op rather than abstract: most providers hold nothing
+        (the extractive one has no client, no socket, no file), and forcing every subclass to
+        write an empty override would add noise without adding safety. Providers that *do* own
+        a resource -- the HTTP-backed ones -- override it.
+        """
+        return None
