@@ -7,7 +7,7 @@ from — in Arabic or English, on your own machine, with no API key required.**
 > readings are the product: answers that are grounded in a document you can check.
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen)](#testing)
 [![Types](https://img.shields.io/badge/mypy-clean-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -86,7 +86,7 @@ positions are therefore never stored, which keeps the database small.
 ## Quickstart
 
 ```bash
-git clone <your-repo-url> mustanad && cd mustanad
+git clone https://github.com/<github-username>/mustanad.git && cd mustanad
 make setup
 make demo
 ```
@@ -196,13 +196,18 @@ make check      # ruff format --check + ruff check + mypy + pytest
 make test
 ```
 
-Verified on Python 3.13.9, Linux, at the time of writing:
+Verified on Python 3.13.9, Linux, by running these commands after the most recent change:
 
 ```
-235 passed in 1.97s
+238 passed                                       # pytest
 Success: no issues found in 20 source files      # mypy
-All checks passed!                               # ruff
+All checks passed!                               # ruff check
+37 files already formatted                       # ruff format --check
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same four checks in a clean container on every push, plus
+a repository-hygiene scan that fails the build if a database, a virtual environment or a
+credential-shaped literal is ever committed.
 
 The suite runs fully offline. Remote providers are tested against an in-process `httpx`
 mock transport, so request building, HTTP status handling and response parsing are all really
@@ -226,7 +231,8 @@ updated. See [Limitations](#limitations).
 | API keys | Stored and compared as SHA-256 digests using `hmac.compare_digest`, over the whole allow-list, so neither content nor position leaks through timing. Fails closed: an empty allow-list rejects everything. |
 | Rate limiting | Per-API-key sliding window (not a fixed window, which would allow `2 × limit` across a boundary). Returns 429 with `Retry-After`. |
 | SQL injection | Every statement is parameterised. The only interpolation is a `?` placeholder run whose length comes from `len()` of an internal list. |
-| Upload handling | Extension allow-list, byte-size cap, and the server generates the temporary path itself — a crafted filename like `../../etc/passwd.md` is used only as a display title (test: `test_ingest_upload_cannot_be_used_to_traverse_the_filesystem`). |
+| Upload handling | Extension allow-list, byte-size cap enforced on a bounded read, and the server generates the temporary path itself — a crafted filename like `../../etc/passwd.md` is used only as a display title (test: `test_ingest_upload_cannot_be_used_to_traverse_the_filesystem`). |
+| Untrusted archives | A DOCX is a ZIP, so the upload cap bounds only its *compressed* size: a 199 KiB file can declare 200 MiB of contents. The ZIP central directory is inspected and an implausible total size or compression ratio is refused **before anything is decompressed**. PDFs are capped at 2,000 pages so a small file cannot declare an enormous page tree. |
 | Prompt injection | Retrieved passages are your documents, and a document can say anything. Passages are wrapped in explicit delimiters and the system instruction declares passage text to be data, never instructions. Citation markers pointing outside the supplied range are discarded as invented sources. |
 | Log hygiene | Structured JSON logs carry ids, counts and timings — never document text. Upstream error bodies are truncated, because they can echo the prompt. |
 | Deletion | `PRAGMA foreign_keys = ON` per connection, so deleting a document cascades to its chunks *and* postings. Orphaned postings would keep answering questions from content you believed was deleted (test: `test_delete_cascades_to_chunks_and_postings`). |
@@ -305,6 +311,8 @@ Every row was verified by running the code, not by intending to.
 | Ollama provider | ⚠️ Implemented and tested against a mock transport. **Not yet run against a real Ollama server** — no model was pulled on the development machine. |
 | OpenAI-compatible provider | ⚠️ Implemented and tested against a mock transport. **Not yet run against the real paid API** — doing so costs money. |
 | API-key auth, rate limiting, cost ceilings | ✅ Implemented and tested |
+| Untrusted-archive guards: DOCX decompression-bomb refusal, PDF page cap | ✅ 3 tests; a 199 KiB archive declaring 200 MiB is refused before anything is expanded |
+| CI (format, lint, types, tests, hygiene) | ✅ Workflow committed and valid; **never executed on GitHub** — it has not been pushed |
 | Labelled retrieval evaluation set | ✅ 16/17 answerable, 3/3 correctly declined |
 | Semantic embeddings | ❌ Not implemented — the provider interface is the seam for it |
 | OCR | ❌ Not implemented |
@@ -343,7 +351,7 @@ src/mustanad/
 ├── api.py             FastAPI app
 └── cli.py             Typer CLI
 samples/               Bilingual sample corpus (fictional content)
-tests/                 235 tests, including the labelled evaluation set
+tests/                 238 tests, including the labelled evaluation set
 ```
 
 ## Sample data
