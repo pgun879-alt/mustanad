@@ -19,6 +19,23 @@ Page = tuple[int | None, str]
 MARKDOWN_SUFFIXES: Final = {".md", ".markdown"}
 TEXT_SUFFIXES: Final = {".txt", ".text"}
 
+#: Largest total *uncompressed* size accepted from a DOCX.
+#:
+#: The HTTP layer caps the upload at ~20 MB, but a DOCX is a ZIP archive, so that cap bounds the
+#: compressed size only. A 200 KiB file can legitimately declare 200 MiB of contents -- a
+#: decompression bomb -- and python-docx would faithfully expand it. The ZIP central directory
+#: records each entry's uncompressed size, so the archive can be inspected and rejected *before*
+#: a single byte is decompressed.
+MAX_DOCX_UNCOMPRESSED_BYTES: Final = 64 * 1024 * 1024
+
+#: Largest compression ratio accepted from a DOCX. Ordinary documents sit far below this; a ratio
+#: in the hundreds is the signature of a crafted archive rather than prose.
+MAX_DOCX_COMPRESSION_RATIO: Final = 200
+
+#: Largest number of PDF pages read. Bounds work on a file that is small on disk but declares an
+#: enormous page tree.
+MAX_PDF_PAGES: Final = 2000
+
 
 class UnsupportedDocumentError(ValueError):
     """Raised when a file's extension has no registered loader."""
@@ -57,6 +74,15 @@ def _load_pdf(path: Path) -> list[Page]:
 
     pages: list[Page] = []
     for number, page in enumerate(reader.pages, start=1):
+        if number > MAX_PDF_PAGES:
+            # Bounds work on a file that is small on disk but declares an enormous page tree.
+            # What was read is still usable, so this truncates rather than failing.
+            logger.warning(
+                "stopping at the %d-page limit for %s; later pages were not read",
+                MAX_PDF_PAGES,
+                path.name,
+            )
+            break
         try:
             text = page.extract_text() or ""
         except Exception as exc:
@@ -74,11 +100,49 @@ def _load_pdf(path: Path) -> list[Page]:
     return pages
 
 
+def _guard_docx_archive(path: Path) -> None:
+    """Refuse a DOCX whose declared contents are implausibly large before decompressing it.
+
+    Reads only the ZIP central directory, which stores each entry's uncompressed size. Nothing is
+    extracted, so a bomb is rejected at negligible cost.
+
+    Raises:
+        DocumentReadError: if the file is not a readable ZIP, or declares too much content.
+    """
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(path) as archive:
+            entries = archive.infolist()
+            uncompressed = sum(entry.file_size for entry in entries)
+            compressed = sum(entry.compress_size for entry in entries) or 1
+    except zipfile.BadZipFile as exc:
+        raise DocumentReadError(f"{path.name} is not a valid DOCX (bad ZIP container)") from exc
+    except OSError as exc:
+        raise DocumentReadError(f"could not read {path.name}: {exc}") from exc
+
+    if uncompressed > MAX_DOCX_UNCOMPRESSED_BYTES:
+        raise DocumentReadError(
+            f"{path.name} declares {uncompressed // (1024 * 1024)} MB of uncompressed content, "
+            f"above the {MAX_DOCX_UNCOMPRESSED_BYTES // (1024 * 1024)} MB limit; refusing to "
+            "expand it"
+        )
+    ratio = uncompressed / compressed
+    if ratio > MAX_DOCX_COMPRESSION_RATIO:
+        raise DocumentReadError(
+            f"{path.name} has a compression ratio of {ratio:.0f}:1, above the "
+            f"{MAX_DOCX_COMPRESSION_RATIO}:1 limit; this is characteristic of a decompression "
+            "bomb rather than a document"
+        )
+
+
 def _load_docx(path: Path) -> list[Page]:
     try:
         import docx
     except ImportError as exc:  # pragma: no cover - dependency is declared
         raise DocumentReadError("python-docx is required to read .docx files") from exc
+
+    _guard_docx_archive(path)
 
     try:
         document = docx.Document(str(path))

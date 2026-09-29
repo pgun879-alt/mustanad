@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from mustanad.loaders import UnsupportedDocumentError, iter_documents, load_document
+from mustanad.loaders import (
+    DocumentReadError,
+    UnsupportedDocumentError,
+    iter_documents,
+    load_document,
+)
 from mustanad.service import IngestionError, MustanadService
 
 
@@ -157,3 +162,46 @@ def test_iter_documents_accepts_a_single_file(tmp_path: Path) -> None:
     path.write_text("x", encoding="utf-8")
     assert iter_documents(path, (".md",)) == [path]
     assert iter_documents(path, (".pdf",)) == []
+
+
+# ------------------------------------------------------- untrusted archive handling
+
+
+def test_a_docx_decompression_bomb_is_refused_before_expansion(tmp_path: Path) -> None:
+    """A DOCX is a ZIP, so the HTTP upload cap bounds only its *compressed* size.
+
+    A file of a couple of hundred kilobytes can legitimately declare hundreds of megabytes of
+    contents. The ZIP central directory records those sizes, so the archive is inspected and
+    rejected before anything is decompressed.
+    """
+    import zipfile
+
+    bomb = tmp_path / "bomb.docx"
+    with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", b"\0" * (200 * 1024 * 1024))
+
+    assert bomb.stat().st_size < 5 * 1024 * 1024, "the bomb must be small on disk"
+    with pytest.raises(DocumentReadError, match=r"decompression bomb|refusing to expand"):
+        load_document(bomb)
+
+
+def test_a_docx_that_is_not_a_zip_is_reported_clearly(tmp_path: Path) -> None:
+    path = tmp_path / "broken.docx"
+    path.write_bytes(b"this is not a zip archive at all")
+    with pytest.raises(DocumentReadError, match="bad ZIP container"):
+        load_document(path)
+
+
+def test_an_ordinary_docx_is_not_refused_by_the_guard(tmp_path: Path) -> None:
+    """The guard must not reject real documents; normal prose compresses nowhere near the limit."""
+    import docx
+
+    path = tmp_path / "ordinary.docx"
+    document = docx.Document()
+    for _ in range(200):
+        document.add_paragraph("Annual leave is 22 working days per calendar year. ")
+    document.save(str(path))
+
+    pages = load_document(path)
+    assert pages
+    assert "Annual leave" in pages[0][1]
