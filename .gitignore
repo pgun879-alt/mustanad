@@ -6,7 +6,6 @@ env/
 # Secrets and local configuration -- never commit these
 .env
 .env.*
-!.env.example
 
 # Databases and indexed content: these hold the user's documents
 data/
@@ -35,3 +34,13 @@ htmlcov/
 .idea/
 *.swp
 .DS_Store
+
+# Generated reports and exports -- these contain real operational data
+reports/
+*.log
+*.jsonl
+*.csv
+*.xlsx
+
+# Always keep the documented placeholder file
+!.env.example
