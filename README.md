@@ -86,7 +86,7 @@ positions are therefore never stored, which keeps the database small.
 ## Quickstart
 
 ```bash
-git clone https://github.com/<github-username>/mustanad.git && cd mustanad
+git clone https://github.com/pgun879-alt/mustanad.git && cd mustanad
 make setup
 make demo
 ```
