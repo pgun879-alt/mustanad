@@ -6,6 +6,7 @@ from — in Arabic or English, on your own machine, with no API key required.**
 > Arabic *مُستَنَد* means "a document". *مُستَنِد* means "grounded in / supported by". Both
 > readings are the product: answers that are grounded in a document you can check.
 
+[![CI](https://github.com/pgun879-alt/mustanad/actions/workflows/ci.yml/badge.svg)](https://github.com/pgun879-alt/mustanad/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen)](#testing)
 [![Types](https://img.shields.io/badge/mypy-clean-brightgreen)](#testing)
@@ -312,7 +313,7 @@ Every row was verified by running the code, not by intending to.
 | OpenAI-compatible provider | ⚠️ Implemented and tested against a mock transport. **Not yet run against the real paid API** — doing so costs money. |
 | API-key auth, rate limiting, cost ceilings | ✅ Implemented and tested |
 | Untrusted-archive guards: DOCX decompression-bomb refusal, PDF page cap | ✅ 3 tests; a 199 KiB archive declaring 200 MiB is refused before anything is expanded |
-| CI (format, lint, types, tests, hygiene) | ✅ Workflow committed and valid; **never executed on GitHub** — it has not been pushed |
+| CI (format, lint, types, tests, hygiene) | ✅ Workflow committed and valid. Its real status is the CI badge at the top of this file, which reports whatever GitHub last ran — including "no runs yet" |
 | Labelled retrieval evaluation set | ✅ 16/17 answerable, 3/3 correctly declined |
 | Semantic embeddings | ❌ Not implemented — the provider interface is the seam for it |
 | OCR | ❌ Not implemented |
@@ -359,6 +360,13 @@ tests/                 238 tests, including the labelled evaluation set
 The four documents in `samples/` are **fictional content written for this demo** — a made-up
 employee handbook, support SLA, Arabic leave policy, and Arabic refund policy. They describe no
 real company and are not legal, HR, or financial advice.
+
+## Contributing and security
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to set the project up, the four gates every
+  change has to pass, and the parts of this code that need care.
+- **[SECURITY.md](SECURITY.md)** — the threat model, what counts as a vulnerability here, what
+  deliberately does not, and how to report one privately.
 
 ## License
 
