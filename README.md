@@ -14,6 +14,10 @@ from — in Arabic or English, on your own machine, with no API key required.**
 [![Types](https://img.shields.io/badge/mypy-clean-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+![Excerpt of the output of make demo](docs/demo.png)
+
+<sub>Real output of `make demo`, excerpted (`⋮` marks omitted lines). No API key, no network.</sub>
+
 ---
 
 ## The problem this solves
