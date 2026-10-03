@@ -6,6 +6,8 @@ from — in Arabic or English, on your own machine, with no API key required.**
 > Arabic *مُستَنَد* means "a document". *مُستَنِد* means "grounded in / supported by". Both
 > readings are the product: answers that are grounded in a document you can check.
 
+**[اقرأ بالعربية](README.ar.md)**
+
 [![CI](https://github.com/pgun879-alt/mustanad/actions/workflows/ci.yml/badge.svg)](https://github.com/pgun879-alt/mustanad/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen)](#testing)
